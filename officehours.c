@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
+#include <semaphore.h>
 
 /*** Constants that define parameters of the simulation ***/
 
@@ -30,6 +31,8 @@ static int students_in_office;   /* Total numbers of students currently in the o
 static int classa_inoffice;      /* Total numbers of students from class A currently in the office */
 static int classb_inoffice;      /* Total numbers of students from class B in the office */
 static int students_since_break = 0;
+sem_t mutex_classmates;
+sem_t mutex_class;
 
 
 typedef struct
@@ -122,9 +125,30 @@ void classa_enter()
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
 
-  students_in_office += 1;
-  students_since_break += 1;
-  classa_inoffice += 1;
+  //check if students in office are in class a, otherwise wait.
+  if (classa_inoffice == 0 || students_in_office == 0) {
+    sem_wait(&mutex_class);
+
+    // third student in puts a lock
+    if (classa_inoffice == MAX_SEATS - 1) {
+      sem_wait(&mutex_classmates);
+
+      students_in_office += 1;
+      students_since_break += 1;
+      classa_inoffice += 1;
+
+    }
+    else {
+      students_in_office += 1;
+      students_since_break += 1;
+      classa_inoffice += 1;
+    }
+
+  }
+
+
+
+
 
 }
 
@@ -140,10 +164,26 @@ void classb_enter()
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
 
+  //check if students in office are in class b, otherwise wait.
+  if (classb_inoffice == 0 || students_in_office == 0) {
+    sem_wait(&mutex_class);
 
-  students_in_office += 1;
-  students_since_break += 1;
-  classb_inoffice += 1;
+    // third student in puts a lock
+    if (classa_inoffice == MAX_SEATS - 1) {
+      sem_wait(&mutex_classmates);
+
+      students_in_office += 1;
+      students_since_break += 1;
+      classb_inoffice += 1;
+
+    }
+    else {
+      students_in_office += 1;
+      students_since_break += 1;
+      classb_inoffice += 1;
+    }
+
+  }
 
 }
 
@@ -166,9 +206,23 @@ static void classa_leave()
    *  TODO
    *  YOUR CODE HERE.
    */
+  // last student to leave if there are still two more students unlocks
+  if (classa_inoffice == MAX_SEATS) {
+    sem_post(&mutex_classmates);
 
-  students_in_office -= 1;
-  classa_inoffice -= 1;
+    students_in_office -= 1;
+    classa_inoffice -= 1;
+  }
+  else {
+    students_in_office -= 1;
+    classa_inoffice -= 1;
+  }
+
+  // allow for students in class b that have been waiting
+  if (classa_inoffice == 0) {
+    sem_post(&mutex_class);
+  }
+
 
 }
 
@@ -183,8 +237,21 @@ static void classb_leave()
    * YOUR CODE HERE.
    */
 
-  students_in_office -= 1;
-  classb_inoffice -= 1;
+   if (classb_inoffice == MAX_SEATS) {
+     sem_post(&mutex_classmates);
+
+     students_in_office -= 1;
+     classb_inoffice -= 1;
+   }
+   else {
+     students_in_office -= 1;
+     classb_inoffice -= 1;
+   }
+
+   // allow for students in class a that have been waiting
+   if (classb_inoffice == 0) {
+     sem_post(&mutex_class);
+   }
 
 }
 
