@@ -103,7 +103,6 @@ void *professorthread(void *junk)
   while (1)
   {
 
-
     /* TODO */
     /* Add code here to handle the student's request.             */
     /* Currently the body of the loop is empty. There's           */
