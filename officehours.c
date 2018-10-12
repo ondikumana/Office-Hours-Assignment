@@ -34,6 +34,8 @@ static int students_since_break = 0;
 sem_t mutex_classmates;
 sem_t mutex_class;
 
+pthread_mutex_t lock;
+
 
 typedef struct
 {
@@ -95,9 +97,12 @@ void *professorthread(void *junk)
 {
   printf("The professor arrived and is starting his office hours\n");
 
+  pthread_mutex_init(&lock, NULL);
+
   /* Loop while waiting for students to arrive. */
   while (1)
   {
+
 
     /* TODO */
     /* Add code here to handle the student's request.             */
@@ -126,29 +131,17 @@ void classa_enter()
   /*  YOUR CODE HERE.                                                     */
 
   //check if students in office are in class a, otherwise wait.
-  if (classa_inoffice == 0 || students_in_office == 0) {
-    sem_wait(&mutex_class);
 
-    // third student in puts a lock
-    if (classa_inoffice == MAX_SEATS - 1) {
-      sem_wait(&mutex_classmates);
+  pthread_mutex_lock(&lock);
+  printf("students_in_office %d\n", students_in_office);
 
-      students_in_office += 1;
-      students_since_break += 1;
-      classa_inoffice += 1;
+  if (classa_inoffice < MAX_SEATS) {
+    students_in_office += 1;
+    students_since_break += 1;
+    classa_inoffice += 1;
 
-    }
-    else {
-      students_in_office += 1;
-      students_since_break += 1;
-      classa_inoffice += 1;
-    }
-
+    pthread_mutex_unlock(&lock);
   }
-
-
-
-
 
 }
 
@@ -165,25 +158,19 @@ void classb_enter()
   /*  YOUR CODE HERE.                                                     */
 
   //check if students in office are in class b, otherwise wait.
-  if (classb_inoffice == 0 || students_in_office == 0) {
-    sem_wait(&mutex_class);
+  sem_wait(&mutex_class);
 
-    // third student in puts a lock
-    if (classa_inoffice == MAX_SEATS - 1) {
-      sem_wait(&mutex_classmates);
+  students_in_office += 1;
+  students_since_break += 1;
+  classb_inoffice += 1;
 
-      students_in_office += 1;
-      students_since_break += 1;
-      classb_inoffice += 1;
-
-    }
-    else {
-      students_in_office += 1;
-      students_since_break += 1;
-      classb_inoffice += 1;
-    }
+  while(classb_inoffice == MAX_SEATS) {
 
   }
+
+  sem_post(&mutex_class);
+
+
 
 }
 
@@ -207,21 +194,8 @@ static void classa_leave()
    *  YOUR CODE HERE.
    */
   // last student to leave if there are still two more students unlocks
-  if (classa_inoffice == MAX_SEATS) {
-    sem_post(&mutex_classmates);
-
-    students_in_office -= 1;
-    classa_inoffice -= 1;
-  }
-  else {
-    students_in_office -= 1;
-    classa_inoffice -= 1;
-  }
-
-  // allow for students in class b that have been waiting
-  if (classa_inoffice == 0) {
-    sem_post(&mutex_class);
-  }
+  students_in_office -= 1;
+  classa_inoffice -= 1;
 
 
 }
@@ -237,21 +211,8 @@ static void classb_leave()
    * YOUR CODE HERE.
    */
 
-   if (classb_inoffice == MAX_SEATS) {
-     sem_post(&mutex_classmates);
-
-     students_in_office -= 1;
-     classb_inoffice -= 1;
-   }
-   else {
-     students_in_office -= 1;
-     classb_inoffice -= 1;
-   }
-
-   // allow for students in class a that have been waiting
-   if (classb_inoffice == 0) {
-     sem_post(&mutex_class);
-   }
+   students_in_office -= 1;
+   classb_inoffice -= 1;
 
 }
 
@@ -369,7 +330,8 @@ int main(int nargs, char **args)
     s_info[i].student_id = i;
     sleep(s_info[i].arrival_time);
 
-    student_type = random() % 2;
+    // student_type = random() % 2;
+    student_type = CLASSA;
 
     if (student_type == CLASSA)
     {
