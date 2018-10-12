@@ -31,10 +31,11 @@ static int students_in_office;   /* Total numbers of students currently in the o
 static int classa_inoffice;      /* Total numbers of students from class A currently in the office */
 static int classb_inoffice;      /* Total numbers of students from class B in the office */
 static int students_since_break = 0;
-sem_t mutex_classmates;
-sem_t mutex_class;
 
-pthread_mutex_t lock;
+pthread_mutex_t class_a;
+pthread_mutex_t class_b;
+
+static int consecutive_students;
 
 
 typedef struct
@@ -55,6 +56,9 @@ static int initialize(student_info *si, char *filename)
   classb_inoffice = 0;
   students_since_break = 0;
 
+  // initializing mutex
+  pthread_mutex_init(&class_a, NULL);
+  pthread_mutex_init(&class_b, NULL);
   /* Initialize your synchronization variables (and
    * other variables you might use) here
    */
@@ -97,12 +101,20 @@ void *professorthread(void *junk)
 {
   printf("The professor arrived and is starting his office hours\n");
 
-  pthread_mutex_init(&lock, NULL);
-
   /* Loop while waiting for students to arrive. */
   while (1)
   {
 
+<<<<<<< HEAD
+=======
+    if (consecutive_students == 5) {
+      if (classa_inoffice == 0)
+        pthread_mutex_unlock(&class_b);
+      else
+        pthread_mutex_unlock(&class_a);
+      consecutive_students = 0;
+    }
+>>>>>>> 30773c4c984918c2d9327b5876491dbaf64b2eb8
     /* TODO */
     /* Add code here to handle the student's request.             */
     /* Currently the body of the loop is empty. There's           */
@@ -130,17 +142,17 @@ void classa_enter()
   /*  YOUR CODE HERE.                                                     */
 
   //check if students in office are in class a, otherwise wait.
-
-  pthread_mutex_lock(&lock);
+  pthread_mutex_lock(&class_a);
   printf("students_in_office %d\n", students_in_office);
 
-  if (classa_inoffice < MAX_SEATS) {
-    students_in_office += 1;
-    students_since_break += 1;
-    classa_inoffice += 1;
-
-    pthread_mutex_unlock(&lock);
+  // enters loop if classroom fool
+  while (classa_inoffice == MAX_SEATS) {
+    // waits until a student gets out
   }
+
+  students_in_office += 1;
+  students_since_break += 1;
+  classa_inoffice += 1;
 
 }
 
@@ -157,17 +169,17 @@ void classb_enter()
   /*  YOUR CODE HERE.                                                     */
 
   //check if students in office are in class b, otherwise wait.
-  sem_wait(&mutex_class);
+  pthread_mutex_lock(&class_b);
+  printf("students_in_office %d\n", students_in_office);
+
+  // enters loop if classroom fool
+  while (classb_inoffice == MAX_SEATS) {
+    // waits until a student gets out
+  }
 
   students_in_office += 1;
   students_since_break += 1;
   classb_inoffice += 1;
-
-  while(classb_inoffice == MAX_SEATS) {
-
-  }
-
-  sem_post(&mutex_class);
 
 
 
@@ -195,7 +207,9 @@ static void classa_leave()
   // last student to leave if there are still two more students unlocks
   students_in_office -= 1;
   classa_inoffice -= 1;
+  consecutive_students += 1;
 
+  pthread_mutex_unlock(&class_a);
 
 }
 
@@ -212,7 +226,9 @@ static void classb_leave()
 
    students_in_office -= 1;
    classb_inoffice -= 1;
+   consecutive_students += 1;
 
+   pthread_mutex_unlock(&class_b);
 }
 
 /* Main code for class A student threads.
@@ -329,8 +345,8 @@ int main(int nargs, char **args)
     s_info[i].student_id = i;
     sleep(s_info[i].arrival_time);
 
-    // student_type = random() % 2;
-    student_type = CLASSA;
+    student_type = random() % 2;
+    // student_type = CLASSB;
 
     if (student_type == CLASSA)
     {
