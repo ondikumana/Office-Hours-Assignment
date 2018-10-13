@@ -13,6 +13,7 @@
 #define MAX_SEATS 3        /* Number of seats in the professor's office */
 #define professor_LIMIT 10 /* Number of students the professor can help before he needs a break */
 #define MAX_STUDENTS 1000  /* Maximum number of students in the simulation */
+#define MAX_CONSECUTIVE_STUDENTS 5
 
 #define CLASSA 0
 #define CLASSB 1
@@ -30,12 +31,16 @@
 static int students_in_office;   /* Total numbers of students currently in the office */
 static int classa_inoffice;      /* Total numbers of students from class A currently in the office */
 static int classb_inoffice;      /* Total numbers of students from class B in the office */
-static int students_since_break = 0;
+static int students_since_break;
+static int number_of_breaks;
+
 
 pthread_mutex_t class_a;
 pthread_mutex_t class_b;
+pthread_mutex_t office_lock;
 
-static int consecutive_students;
+static int consecutive_students_a;
+static int consecutive_students_b;
 
 
 typedef struct
@@ -59,6 +64,7 @@ static int initialize(student_info *si, char *filename)
   // initializing mutex
   pthread_mutex_init(&class_a, NULL);
   pthread_mutex_init(&class_b, NULL);
+  pthread_mutex_init(&office_lock, NULL);
   /* Initialize your synchronization variables (and
    * other variables you might use) here
    */
@@ -89,9 +95,11 @@ static int initialize(student_info *si, char *filename)
 static void take_break()
 {
   printf("The professor is taking a break now.\n");
+  printf("students_in_office %d\n", students_in_office);
   sleep(5);
   assert( students_in_office == 0 );
   students_since_break = 0;
+  pthread_mutex_unlock(&office_lock);
 }
 
 /* Code for the professor thread. This is fully implemented except for synchronization
@@ -104,17 +112,22 @@ void *professorthread(void *junk)
   /* Loop while waiting for students to arrive. */
   while (1)
   {
-
-<<<<<<< HEAD
-=======
-    if (consecutive_students == 5) {
-      if (classa_inoffice == 0)
-        pthread_mutex_unlock(&class_b);
-      else
-        pthread_mutex_unlock(&class_a);
-      consecutive_students = 0;
+    if (students_since_break == professor_LIMIT && students_in_office == 0) {
+      take_break();
+      number_of_breaks += 1;
     }
->>>>>>> 30773c4c984918c2d9327b5876491dbaf64b2eb8
+
+    // if (students_since_break == 0 && number_of_breaks != 0 && students_in_office == 0) {
+    //   printf("%s\n", "done with break");
+    //   pthread_mutex_unlock(&office_lock);
+    // }
+
+
+    // if (consecutive_students_a == MAX_CONSECUTIVE_STUDENTS && consecutive_students_a == MAX_CONSECUTIVE_STUDENTS) {
+    //   consecutive_students_a = 0;
+    //   consecutive_students_b = 0;
+    // }
+
     /* TODO */
     /* Add code here to handle the student's request.             */
     /* Currently the body of the loop is empty. There's           */
@@ -142,17 +155,23 @@ void classa_enter()
   /*  YOUR CODE HERE.                                                     */
 
   //check if students in office are in class a, otherwise wait.
-  pthread_mutex_lock(&class_a);
-  printf("students_in_office %d\n", students_in_office);
+  if (classa_inoffice == MAX_SEATS ||
+      classa_inoffice == 0 ||
+      students_since_break == professor_LIMIT)
+    pthread_mutex_lock(&office_lock);
 
-  // enters loop if classroom fool
-  while (classa_inoffice == MAX_SEATS) {
-    // waits until a student gets out
-  }
+
+  // enters loop if classroom full
+  // while (classa_inoffice == MAX_SEATS) {
+  //   // waits until a student gets out
+  // }
 
   students_in_office += 1;
   students_since_break += 1;
   classa_inoffice += 1;
+  consecutive_students_a += 1;
+
+  printf("consecutive_students_a %d\n", consecutive_students_a);
 
 }
 
@@ -169,18 +188,23 @@ void classb_enter()
   /*  YOUR CODE HERE.                                                     */
 
   //check if students in office are in class b, otherwise wait.
-  pthread_mutex_lock(&class_b);
-  printf("students_in_office %d\n", students_in_office);
+  if (classb_inoffice == MAX_SEATS ||
+      classb_inoffice == 0 ||
+      students_since_break == professor_LIMIT)
+    pthread_mutex_lock(&office_lock);
 
-  // enters loop if classroom fool
-  while (classb_inoffice == MAX_SEATS) {
-    // waits until a student gets out
-  }
+
+  // // // enters loop if classroom full
+  // while (classb_inoffice == MAX_SEATS) {
+  //   // waits until a student gets out
+  // }
 
   students_in_office += 1;
   students_since_break += 1;
   classb_inoffice += 1;
+  consecutive_students_b += 1;
 
+  printf("consecutive_students_b %d\n", consecutive_students_b);
 
 
 }
@@ -207,9 +231,11 @@ static void classa_leave()
   // last student to leave if there are still two more students unlocks
   students_in_office -= 1;
   classa_inoffice -= 1;
-  consecutive_students += 1;
 
-  pthread_mutex_unlock(&class_a);
+  // while(students_since_break == professor_LIMIT)
+
+  if (classa_inoffice == 0 && students_since_break != professor_LIMIT)
+    pthread_mutex_unlock(&office_lock);
 
 }
 
@@ -226,9 +252,11 @@ static void classb_leave()
 
    students_in_office -= 1;
    classb_inoffice -= 1;
-   consecutive_students += 1;
 
-   pthread_mutex_unlock(&class_b);
+   // while(students_since_break == professor_LIMIT)
+
+   if (classb_inoffice == 0 && students_since_break != professor_LIMIT)
+    pthread_mutex_unlock(&office_lock);
 }
 
 /* Main code for class A student threads.
@@ -248,6 +276,8 @@ void* classa_student(void *si)
   assert(classa_inoffice >= 0 && classa_inoffice <= MAX_SEATS);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
   assert(classb_inoffice == 0 );
+
+  printf("students_in_office %d\n", students_in_office);
 
   /* ask questions  --- do not make changes to the 3 lines below*/
   printf("Student %d from class A starts asking questions for %d minutes\n", s_info->student_id, s_info->question_time);
@@ -283,6 +313,8 @@ void* classb_student(void *si)
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
   assert(classa_inoffice >= 0 && classa_inoffice <= MAX_SEATS);
   assert(classa_inoffice == 0 );
+
+  printf("students_in_office %d\n", students_in_office);
 
   printf("Student %d from class B starts asking questions for %d minutes\n", s_info->student_id, s_info->question_time);
   ask_questions(s_info->question_time);
@@ -346,7 +378,7 @@ int main(int nargs, char **args)
     sleep(s_info[i].arrival_time);
 
     student_type = random() % 2;
-    // student_type = CLASSB;
+    // student_type = CLASSA;
 
     if (student_type == CLASSA)
     {
