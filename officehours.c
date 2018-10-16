@@ -34,6 +34,7 @@ static int classb_inoffice;      /* Total numbers of students from class B in th
 static int students_since_break;
 static int number_of_breaks;
 
+sem_t office_sem;
 
 pthread_mutex_t class_a;
 pthread_mutex_t class_b;
@@ -65,6 +66,8 @@ static int initialize(student_info *si, char *filename)
   pthread_mutex_init(&class_a, NULL);
   pthread_mutex_init(&class_b, NULL);
   pthread_mutex_init(&office_lock, NULL);
+
+  // sem_init(&office_sem, 0, 0);
   /* Initialize your synchronization variables (and
    * other variables you might use) here
    */
@@ -112,10 +115,33 @@ void *professorthread(void *junk)
   /* Loop while waiting for students to arrive. */
   while (1)
   {
-    if (students_since_break == professor_LIMIT && students_in_office == 0) {
-      take_break();
-      number_of_breaks += 1;
-    }
+    // if (students_since_break == professor_LIMIT && students_in_office == 0) {
+    //   take_break();
+    //   number_of_breaks += 1;
+    // }
+
+    // if (classa_inoffice != MAX_SEATS && pthread_mutex_trylock(&class_a) == 0 ) {
+    //   printf("unlocking class a because not full\n");
+    //   pthread_mutex_unlock(&class_a);
+    // }
+    // if (classb_inoffice != MAX_SEATS && pthread_mutex_trylock(&class_b) == 0 ) {
+    //   printf("unlocking class b because not full\n");
+    //   pthread_mutex_unlock(&class_b);
+    // }
+
+    // if there are no students in class a, meaning there is no lock, lock a students out and let class b students in
+    // if ( pthread_mutex_trylock(&class_a) != 0 && classa_inoffice == 0 ) {
+    //   printf("no a students\n");
+    //   pthread_mutex_unlock(&class_b);
+    //   pthread_mutex_lock(&class_a);
+    // }
+    //
+    // if ( pthread_mutex_trylock(&class_b) != 0 && classb_inoffice == 0 ) {
+    //   printf("no b students\n");
+    //   pthread_mutex_unlock(&class_a);
+    //   pthread_mutex_lock(&class_b);
+    // }
+
 
     // if (students_since_break == 0 && number_of_breaks != 0 && students_in_office == 0) {
     //   printf("%s\n", "done with break");
@@ -156,9 +182,12 @@ void classa_enter()
 
   //check if students in office are in class a, otherwise wait.
   if (classa_inoffice == MAX_SEATS ||
-      classa_inoffice == 0 ||
-      students_since_break == professor_LIMIT)
-    pthread_mutex_lock(&office_lock);
+      classb_inoffice != 0 ||
+      students_since_break == professor_LIMIT) {
+        pthread_mutex_lock(&class_a);
+        printf("locking class a\n");
+      }
+
 
 
   // enters loop if classroom full
@@ -171,7 +200,7 @@ void classa_enter()
   classa_inoffice += 1;
   consecutive_students_a += 1;
 
-  printf("consecutive_students_a %d\n", consecutive_students_a);
+  // printf("consecutive_students_a %d\n", consecutive_students_a);
 
 }
 
@@ -189,9 +218,12 @@ void classb_enter()
 
   //check if students in office are in class b, otherwise wait.
   if (classb_inoffice == MAX_SEATS ||
-      classb_inoffice == 0 ||
-      students_since_break == professor_LIMIT)
-    pthread_mutex_lock(&office_lock);
+      classa_inoffice != 0 ||
+      students_since_break == professor_LIMIT) {
+        pthread_mutex_lock(&class_b);
+        printf("locking class b\n");
+      }
+
 
 
   // // // enters loop if classroom full
@@ -204,7 +236,7 @@ void classb_enter()
   classb_inoffice += 1;
   consecutive_students_b += 1;
 
-  printf("consecutive_students_b %d\n", consecutive_students_b);
+  // printf("consecutive_students_b %d\n", consecutive_students_b);
 
 
 }
@@ -234,8 +266,11 @@ static void classa_leave()
 
   // while(students_since_break == professor_LIMIT)
 
-  if (classa_inoffice == 0 && students_since_break != professor_LIMIT)
-    pthread_mutex_unlock(&office_lock);
+  // if ((classa_inoffice == 0 || classa_inoffice == MAX_SEATS -1) && students_since_break != professor_LIMIT)
+  if (classa_inoffice != MAX_SEATS){
+    printf("unlocking class a\n");
+    pthread_mutex_unlock(&class_a);
+  }
 
 }
 
@@ -255,8 +290,12 @@ static void classb_leave()
 
    // while(students_since_break == professor_LIMIT)
 
-   if (classb_inoffice == 0 && students_since_break != professor_LIMIT)
-    pthread_mutex_unlock(&office_lock);
+   // if ((classb_inoffice == 0 || classb_inoffice == MAX_SEATS - 1) && students_since_break != professor_LIMIT)
+   if (classb_inoffice != MAX_SEATS){
+     printf("unlocking class a\n");
+     pthread_mutex_unlock(&class_b);
+   }
+
 }
 
 /* Main code for class A student threads.
