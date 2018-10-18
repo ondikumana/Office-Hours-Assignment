@@ -125,14 +125,14 @@ void *professorthread(void *junk)
     //   number_of_breaks += 1;
     // }
 
-    if (classa_inoffice > 0) {
-      sem_wait(&class_b);
-      printf("making b wait...\n");
-    }
-    if (classb_inoffice > 0) {
-      sem_wait(&class_a);
-      printf("making a wait...\n");
-    }
+    // if (classa_inoffice > 0) {
+    //   sem_wait(&class_b);
+    //   printf("making b wait...\n");
+    // }
+    // if (classb_inoffice > 0) {
+    //   sem_wait(&class_a);
+    //   printf("making a wait...\n");
+    // }
 
     // if (classa_inoffice == 0 && classb_inoffice == 0) {
     //   printf("b can now go in\n");
@@ -239,7 +239,11 @@ void classa_enter()
 
   // pthread_mutex_lock(&class_a);
 
-sem_wait(&class_a);
+  while (classb_inoffice > 0) {
+   //  waits until a student gets out
+   }
+
+   sem_wait(&class_a);
 
   // check if students in office are in class a, otherwise wait.
   // if (classa_inoffice == MAX_SEATS - 1 ||
@@ -248,10 +252,16 @@ sem_wait(&class_a);
   //       printf("locking class a\n");
   //     }
 
+  while(consecutive_students_a == MAX_CONSECUTIVE_STUDENTS) {
+    // waits when there have been 5 students
+  }
+
   students_in_office += 1;
   students_since_break += 1;
   classa_inoffice += 1;
   consecutive_students_a += 1;
+
+  printf("consecutive_students_a %d\n", consecutive_students_a);
 
   if (classa_inoffice != MAX_SEATS)
     sem_post(&class_a);
@@ -275,6 +285,10 @@ void classb_enter()
   // while(classa_inoffice != 0) {
   // }
 
+  while(classa_inoffice > 0) {
+   // waits for class a to finish
+  }
+
   sem_wait(&class_b);
 
   // check if students in office are in class b, otherwise wait.
@@ -296,10 +310,16 @@ void classb_enter()
   //   // waits until a student gets out
   // }
 
+  while(consecutive_students_b == MAX_CONSECUTIVE_STUDENTS) {
+    // waits when there have been 5 students
+  }
+
   students_in_office += 1;
   students_since_break += 1;
   classb_inoffice += 1;
   consecutive_students_b += 1;
+
+  printf("consecutive_students_b %d\n", consecutive_students_b);
 
   if (classb_inoffice != MAX_SEATS)
     sem_post(&class_b);
@@ -332,6 +352,9 @@ static void classa_leave()
   students_in_office -= 1;
   classa_inoffice -= 1;
 
+  if (consecutive_students_b == MAX_CONSECUTIVE_STUDENTS)
+    consecutive_students_b = 0;
+
   // while(students_since_break == professor_LIMIT)
   // pthread_mutex_unlock(&class_a);
 
@@ -359,6 +382,9 @@ static void classb_leave()
 
    students_in_office -= 1;
    classb_inoffice -= 1;
+
+   if (consecutive_students_a == MAX_CONSECUTIVE_STUDENTS)
+    consecutive_students_a = 0;
 
    // while(students_since_break == professor_LIMIT)
 
