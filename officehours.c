@@ -89,10 +89,8 @@ void *professorthread(void *junk)
   /* Loop while waiting for students to arrive. */
   while (1)
   {
-    if (students_since_break == professor_LIMIT && students_in_office == 0) {
+    if (students_since_break == professor_LIMIT && students_in_office == 0)
       take_break();
-      number_of_breaks += 1;
-    }
   }
   pthread_exit(NULL);
 }
