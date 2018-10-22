@@ -1,3 +1,9 @@
+/*
+  Name: Olivier Ndikumana
+  ID: 1001520973
+*/
+
+
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
